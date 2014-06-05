@@ -98,7 +98,7 @@ func (f *Fetcher) listener(notify chan error) {
 }
 
 func (f *Fetcher) fetchData() (functions []*Function, err error) {
-	rows, err := f.txn.Query("SELECT fnsignature, ncalls, coverage FROM pgcov.pgcov_called_functions() ORDER BY fnsignature")
+	rows, err := f.txn.Query("SELECT fnsignature, ncalls FROM pgcov.pgcov_called_functions() ORDER BY fnsignature")
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (f *Fetcher) fetchData() (functions []*Function, err error) {
 	functions = nil
 	for rows.Next() {
 		fn := &Function{}
-		err = rows.Scan(&fn.Signature, &fn.Calls, &fn.Coverage)
+		err = rows.Scan(&fn.Signature, &fn.Calls)
 		if err != nil {
 			return nil, err
 		}
