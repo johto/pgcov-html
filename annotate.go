@@ -32,7 +32,27 @@ table.listing tr.hit td {
 </style>
 `
 
-func Annotate(w io.Writer, functions []*Function, hideSourceListFile string) error {
+// As for the actual functions, we want to sort them roughly by the
+// usefulness of the information they contain.  That would mean PL/PgSQL
+// functions first, then SQL functions, and the rest at the very end.
+// However, we currently don't have that information so just sort by
+// whether prosrc is nil or not.
+type FunctionSlice []*Function
+func (fs FunctionSlice) Len() int {
+	return len(fs)
+}
+func (fs FunctionSlice) Swap(i, j int) {
+	fs[i], fs[j] = fs[j], fs[i]
+}
+func (fs FunctionSlice) Less(i, j int) bool {
+	if (fs[i].prosrc == nil) != (fs[j].prosrc == nil) {
+		return fs[i].prosrc != nil
+	}
+	return fs[i].Signature < fs[j].Signature
+}
+
+
+func Annotate(w io.Writer, functions FunctionSlice, hideSourceListFile string) error {
 	var hideSourceList []string
 	if hideSourceListFile != "" {
 		fh, err := os.Open(hideSourceListFile)
@@ -58,6 +78,10 @@ func Annotate(w io.Writer, functions []*Function, hideSourceListFile string) err
 	}
 
 	fmt.Fprintf(w, "<html>%s<head><title>Coverage Report</title></head><body>\n", style)
+
+	// see above
+	sort.Sort(functions)
+
 	for _, fn := range(functions) {
 		fmt.Fprintf(w, "function %s:\n<br /><br />\n", html.EscapeString(fn.Signature))
 		err := printSource(w, fn, hideSourceList)
