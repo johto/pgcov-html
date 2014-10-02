@@ -10,20 +10,24 @@ import (
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `Usage:
-  %s [--help] [--outfile FILE]
+  %s [--help] [--outfile FILE] [--hide-source-list FILE]
 
 Options:
-  --help         display this help and exit
-  --outfile      write the output to FILE (default: coverage.html)
+  --help                display this help and exit
+  --outfile             write the output to FILE (default: coverage.html)
+  --hide-source-list    reads a newline-separated list of functions from FILE
+                        for which the source code should be hidden
 `, os.Args[0])
 }
 
 func main() {
 	var displayHelp bool
 	var outputFile string
+	var hideSourceListFile string
 	flagSet := flag.NewFlagSet("args", flag.ExitOnError)
 	flagSet.BoolVar(&displayHelp, "help", false, "")
 	flagSet.StringVar(&outputFile, "outfile", "coverage.html", "")
+	flagSet.StringVar(&hideSourceListFile, "hide-source-list", "", "")
 	flagSet.Usage = printUsage
 	err := flagSet.Parse(os.Args[1:])
 	if err != nil {
@@ -69,7 +73,7 @@ func main() {
 		log.Fatalf("could not open output file %#v: %s", outputFile, err)
 	}
 	defer file.Close()
-	err = Annotate(file, functions)
+	err = Annotate(file, functions, hideSourceListFile)
 	if err != nil {
 		log.Fatalf("Annotate() failed: %s", err)
 	}

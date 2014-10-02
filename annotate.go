@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"html"
 	"io"
+	"os"
 	"strings"
+	"sort"
 )
 
 const style string = `
@@ -29,11 +32,35 @@ table.listing tr.hit td {
 </style>
 `
 
-func Annotate(w io.Writer, functions []*Function) error {
+func Annotate(w io.Writer, functions []*Function, hideSourceListFile string) error {
+	var hideSourceList []string
+	if hideSourceListFile != "" {
+		fh, err := os.Open(hideSourceListFile)
+		if err != nil {
+			return fmt.Errorf("could not open file %#v for reading: %s", hideSourceListFile, err)
+		}
+		defer fh.Close()
+		r := bufio.NewReader(fh)
+		for {
+			line, err := r.ReadString('\n')
+			if err != nil && err != io.EOF {
+				return fmt.Errorf("could not read from file %#v: %s", hideSourceListFile, err)
+			}
+			line = strings.TrimRight(line, "\r\n")
+			if len(line) > 0 {
+				hideSourceList = append(hideSourceList, line)
+			}
+			if err == io.EOF {
+				break
+			}
+		}
+		sort.Strings(hideSourceList)
+	}
+
 	fmt.Fprintf(w, "<html>%s<head><title>Coverage Report</title></head><body>\n", style)
 	for _, fn := range(functions) {
 		fmt.Fprintf(w, "function %s:\n<br /><br />\n", html.EscapeString(fn.Signature))
-		err := printSource(w, fn)
+		err := printSource(w, fn, hideSourceList)
 		if err != nil {
 			return err
 		}
@@ -109,7 +136,14 @@ func getLineInfo(split []string, lines []sourceLine) (info []sourceLineInfo, err
 	return info, nil
 }
 
-func printSource(w io.Writer, fn *Function) error {
+func printSource(w io.Writer, fn *Function, hideSourceList []string) error {
+	// see if we need to hide this source
+	idx := sort.SearchStrings(hideSourceList, fn.Signature)
+	if idx < len(hideSourceList) && hideSourceList[idx] == fn.Signature {
+		fmt.Fprintf(w, "<p>(source code hidden)</p><br />\n")
+		return nil
+	}
+
 	if fn.prosrc == nil {
 		fmt.Fprintf(w, "<p>(no source code information)</p><br />\n")
 		return nil
