@@ -52,6 +52,11 @@ func (f *Fetcher) Listen(conninfo string) (notify chan error, err error) {
 		return nil, err
 	}
 
+	// We have to do pg_cancel_backend() below, which aborts the transaction
+	// we're in.  However, we also need to hold on to the transaction because
+	// that used to be the only way to hold on to the connection, which is what
+	// we really want to do.  I'm not going to bother changing this code to use
+	// the new *sql.Conn stuff, because I'm lazy.
 	_, err = txn.Exec("SAVEPOINT s")
 	if err != nil {
 		_ = txn.Rollback()
